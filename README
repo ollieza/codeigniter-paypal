@@ -3,7 +3,10 @@ PayPal - beta
 
 This CodeIgniter library handles payments via PayPal including IPN responses.
 
-Modification and fixes of Ran Aroussi code (http://codeigniter.com/wiki/PayPal_Lib/) which was based on the PayPal PHP class by Micah Carrick including:
+Modification and fixes of Ran Aroussi code (http://codeigniter.com/wiki/PayPal_Lib/) which was based on the PayPal PHP class by Micah Carrick.
+
+Change list:
+------------
 
 - Deprecated eregi() fix
 - Added file or db logging config option
