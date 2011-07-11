@@ -46,61 +46,50 @@
 
 // ------------------------------------------------------------------------
 
-class Paypal_Lib {
+class Paypal_lib {
 
-	var $last_error;			// holds the last error encountered
+	var $last_error = '';			// holds the last error encountered
 	var $ipn_log;				// bool: log IPN results to text file?
 
 	var $ipn_log_file;			// filename of the IPN log
-	var $ipn_response;			// holds the IPN response from paypal	
+	var $ipn_log_method;
+	var $ipn_response = '';		// holds the IPN response from paypal	
 	var $ipn_data = array();	// array contains the POST values for IPN
 	var $fields = array();		// array holds the fields to submit to paypal
-
+    var $paypal_url = '';
+    var $paypal_cmd = '_xclick';
 	var $submit_btn = '';		// Image/Form button
 	var $button_path = '';		// The path of the buttons
 	
 	var $CI;
 	
-	function Paypal_Lib()
+    // Allowed order fields. No point making this static as PHP arrays can always be modified later on anyway.
+    private $orderFields = array('notify_version', 'verify_sign', 'test_ipn', 'protection_eligibility', 'charset', 'btn_id', 'address_city', 'address_country', 'address_country_code', 'address_name', 'address_state', 'address_status', 'address_street', 'address_zip', 'first_name', 'last_name', 'payer_business_name', 'payer_email', 'payer_id', 'payer_status', 'contact_phone', 'residence_country', 'business', 'receiver_email', 'receiver_id', 'custom', 'invoice', 'memo', 'option_name_1', 'option_name_2', 'option_selection1', 'option_selection2', 'tax decimal', 'auth_id', 'auth_exp', 'auth_amount', 'auth_status', 'num_cart_items', 'parent_txn_id', 'payment_date', 'payment_status', 'payment_type', 'pending_reason', 'reason_code', 'remaining_settle', 'shipping_method', 'shipping', 'transaction_entity', 'txn_id', 'txn_type', 'exchange_rate', 'mc_currency', 'mc_fee', 'mc_gross', 'mc_handling', 'mc_shipping', 'payment_fee', 'payment_gross', 'settle_amount', 'settle_currency', 'auction_buyer_id', 'auction_closing_date', 'auction_multi_item', 'for_auction', 'subscr_date', 'subscr_effective', 'period1', 'period2', 'period3', 'amount1', 'amount2', 'amount3', 'mc_amount1', 'mc_amount2', 'mc_amount3', 'recurring', 'reattempt', 'retry_at', 'recur_times', 'username', 'password', 'subscr_id', 'case_id', 'case_type', 'case_creation_date', 'order_status', 'discount', 'shipping_discount', 'ipn_track_id', 'transaction_subject');
+	
+	public function __construct()
 	{
 		$this->CI =& get_instance();
 		$this->CI->load->helper('url');
 		$this->CI->load->helper('form');
 		$this->CI->load->config('paypallib_config');
 		
-		$this->paypal_url = 'https://www.paypal.com/cgi-bin/webscr';
-
-		$this->last_error = '';
-		$this->ipn_response = '';
-
-		$this->ipn_log_file = $this->CI->config->item('paypal_lib_ipn_log_file');
+		$this->paypal_url = ($this->CI->config->item('paypal_lib_live')) ? 'https://www.paypal.com/cgi-bin/webscr' : 'https://www.sandbox.paypal.com/cgi-bin/webscr';
+        $this->ipn_log_file = $this->CI->config->item('paypal_lib_ipn_log_file');
 		$this->ipn_log = $this->CI->config->item('paypal_lib_ipn_log'); 
-		
 		$this->button_path = $this->CI->config->item('paypal_lib_button_path');
+		$this->ipn_log_method = $this->CI->config->item('paypal_lib_ipn_log_method');
 		
-		// populate $fields array with a few default values.  See the paypal
-		// documentation for a list of fields and their data types. These defaul
-		// values can be overwritten by the calling script.
-		$this->add_field('rm','2');			  // Return method = POST
-		$this->add_field('cmd','_xclick');
-
 		$this->add_field('currency_code', $this->CI->config->item('paypal_lib_currency_code'));
 	    $this->add_field('quantity', '1');
 		$this->button('Pay Now!');
 	}
 
-	function button($value)
-	{
-		// changes the default caption of the submit button
-		$this->submit_btn = form_submit('pp_submit', $value);
-	}
-
-	function image($file)
-	{
-		$this->submit_btn = '<input type="image" name="add" src="' . site_url($this->button_path .'/'. $file) . '" border="0" />';
-	}
-
-
+    /**
+     * Add a hidden input field to the paypal form
+     * @param string field name
+     * @param string value of input
+     * @return void
+     */
 	function add_field($field, $value) 
 	{
 		// adds a key=>value pair to the fields array, which is what will be 
@@ -108,7 +97,91 @@ class Paypal_Lib {
 		// array, it will be overwritten.
 		$this->fields[$field] = $value;
 	}
-
+    
+    /**
+     * Add a text submit button to form
+     * @param string text for button
+     * @return void
+     */
+	function button($value)
+	{
+		// changes the default caption of the submit button
+		$this->submit_btn = form_submit('pp_submit', $value);
+	}
+    
+    /**
+     * Unset form variables
+     * @param none
+     * @return void
+     */
+    public function clear(){
+        $this->fields = array();
+    }
+    
+    /**
+     * Add a Paypal image submit button to form
+     * @param string filename of image
+     * @return void
+     */
+	function image($file)
+	{
+		$this->submit_btn = '<input type="image" name="add" src="' . site_url($this->button_path .'/'. $file) . '" border="0" />';
+	}
+        
+    /**
+     * Initialize the configuration variables
+     * @param array
+     * @return void
+     */
+     public function initialize( $options = array() ){
+        if(is_array($options)){
+            foreach($options as $key => $value){
+                $this->$key = $value;
+            }
+        }
+        
+        // populate $fields array with a few default values.  See the paypal
+		// documentation for a list of fields and their data types. These defaul
+		// values can be overwritten by the calling script.
+		$this->add_field('rm','2');			  // Return method = POST
+		$this->add_field('cmd',$this->paypal_cmd);
+        
+        return;
+     }
+     
+     /**
+      * Add fields for a subscription button
+      * Defaults
+      * a3 = $10
+      * p3 = 12
+      * t3 = months
+      * sra = 1 reattempt failed payment
+      * @param array of key=>values for fields
+      * @return string html of form
+      */
+     public function add_subscription( $options = array() ){
+        
+        //Merge default values with values passed to function
+        $options = array_merge( array('a3' => '10',
+                                      'p3' => '12',
+                                      't3' => 'M',
+                                      'sra'  => TRUE,
+                                      'custom' => rand()
+                                    ), $options);
+                                    
+        foreach ($options as $key => $value) {
+            $this->add_field($key, $value);
+        }
+        
+        return $this->paypal_form();
+        
+     }
+    
+    /**
+     * Generate a complete html page with a single paypal form
+     * @param none
+     * @return void
+     */
 	function paypal_auto_form() 
 	{
 		// this function actually generates an entire HTML page consisting of
@@ -129,6 +202,12 @@ class Paypal_Lib {
 		echo '</body></html>';
 	}
 
+
+    /**
+     * Generate Paypal form returns form tag with all hidden inputs
+     * @param string form name
+     * @return string html for form
+     */
 	function paypal_form($form_name='paypal_form') 
 	{
 		$str = '';
@@ -141,6 +220,12 @@ class Paypal_Lib {
 		return $str;
 	}
 	
+    
+    /**
+     * Validate a IPN post back from Paypal servers
+     * @param none $_POST from paypal
+     * @return bool
+     */
 	function validate_ipn()
 	{
 		// parse the paypal URL
@@ -150,9 +235,9 @@ class Paypal_Lib {
 		// _POST vars into an arry so we can play with them from the calling
 		// script.
 		$post_string = '';	 
-		if ($this->CI->input->post())
+		if ($_POST)
 		{
-			foreach ($this->CI->input->post() as $field=>$value)
+			foreach ($_POST as $field => $value)
 			{ 
 				$this->ipn_data[$field] = $value;
 				$post_string .= $field.'='.urlencode(stripslashes($value)).'&'; 
@@ -160,7 +245,7 @@ class Paypal_Lib {
 		}
 		
 		$post_string.="cmd=_notify-validate"; // append ipn command
-
+        
 		// open the connection to paypal
 		$fp = fsockopen($url_parsed['host'],"80",$err_num,$err_str,30); 
 		if(!$fp)
@@ -187,11 +272,25 @@ class Paypal_Lib {
 
 			fclose($fp); // close connection
 		}
-
-		if (eregi("VERIFIED",$this->ipn_response))
+        
+        // $data['post_string'] = $post_string;
+        // $data['host']        = $url_parsed['host'];
+        // $data['ipn_response']= $this->ipn_response;
+        // $data['server']      = $_SERVER;
+        // 
+        // $insert = array('paypal_log_data' => serialize($data),
+        //                 'paypal_log_date_modified' => date('Y-m-d H:i:s')
+        // );
+        // $this->CI->db->insert('paypal_log', $insert);
+        
+		if (preg_match("/VERIFIED/i", $this->ipn_response))
 		{
 			// Valid IPN transaction.
-			$this->log_ipn_results(true);
+			if ($this->ipn_log_method == 'db')
+			{
+				return $this->log_ipn_results(true);
+			}
+			
 			return true;		 
 		} 
 		else 
@@ -203,6 +302,12 @@ class Paypal_Lib {
 		}
 	}
 
+
+    /**
+     * Log IPN results from request in a txt file
+     * @param bool
+     * @return void
+     */
 	function log_ipn_results($success) 
 	{
 		if (!$this->ipn_log) return;  // is logging turned off?
@@ -223,13 +328,52 @@ class Paypal_Lib {
 		$text .= "\nIPN Response from Paypal Server:\n ".$this->ipn_response;
 
 		// Write to log
-		$fp=fopen($this->ipn_log_file,'a');
-		fwrite($fp, $text . "\n\n"); 
+		if ($this->ipn_log_method == 'file')
+		{
+			$fp=fopen($this->ipn_log_file,'a');
+			fwrite($fp, $text . "\n\n"); 
 
-		fclose($fp);  // close file
+			fclose($fp);  // close file
+			
+			return;		
+		}
+        
+		if ($this->ipn_log_method == 'db')
+		{
+			//Add to DB
+	        $data['ipn_response'] = $this->ipn_response;
+	        $data['text']         = $text;
+	        $data['ipn_data']     = $this->ipn_data;
+	        
+			$log_data = array(
+							'paypal_log_data' 			=> serialize($data),
+	                        'paypal_log_created' 		=> date('Y-m-d H:i:s')
+	        );
+	     
+	  		// First extract the actual order record itself
+        	foreach ($this->ipn_data as $key => $value)
+	        {
+	            // Only add the field if it's in our whitelist.
+	            // We use a whitelist because PayPal adds new fields to the IPN system
+	            // at random/without warning, and if we don't have a whitelist then
+	            // the database insert/update will then break
+	            if (in_array($key, $this->orderFields))
+	            {
+	                $log_data[$key] = $value;
+	            }
+	        }
+    
+	   		$this->CI->db->insert('paypal_log', $log_data);
+	
+			return $this->CI->db->insert_id();
+		}
 	}
 
-
+    /**
+     * Debug output echos out html
+     * @param none
+     * @return void
+     */
 	function dump() 
 	{
 		// Used for debugging, this function will output all the field/value pairs
