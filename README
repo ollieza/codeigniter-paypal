@@ -1,0 +1,13 @@
+Paypal - beta
+=============================================
+
+This CodeIgniter library handles payments via Paypal
+including IPN responses.
+
+Modification and fixes of Ran Aroussi code (http://codeigniter.com/wiki/PayPal_Lib/) which was based on the Paypal PHP class by Micah Carrick.
+
+Extra
+-----
+
+If you'd like to request changes, report bug fixes, or contact
+the developer of this library, please email <orattue[at]toomanytabs.com>
