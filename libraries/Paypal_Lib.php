@@ -1,16 +1,15 @@
 <?php if (!defined('BASEPATH')) exit('No direct script access allowed'); 
+
 /**
- * Code Igniter
+ * PayPal CodeIgniter library
  *
- * An open source application development framework for PHP 4.3.2 or newer
- *
- * @package		CodeIgniter
- * @author		Rick Ellis
- * @copyright	Copyright (c) 2006, pMachine, Inc.
- * @license		http://www.codeignitor.com/user_guide/license.html
- * @link		http://www.codeigniter.com
- * @since		Version 1.0
- * @filesource
+ * This CodeIgniter library handles payments via PayPal including IPN responses.
+ * 
+ * @package   codeigniter-paypal
+ * @author    Ollie Rattue, Too many tabs <orattue[at]toomanytabs.com>
+ * @copyright Copyright (c) 2011, Ollie Rattue
+ * @license   http://www.opensource.org/licenses/mit-license.php
+ * @link      https://github.com/ollierattue/codeigniter-paypal
  */
 
 // ------------------------------------------------------------------------
