@@ -6,10 +6,7 @@
  * This CodeIgniter library handles payments via PayPal including IPN responses.
  * 
  * @package   codeigniter-paypal
- * @author    Ollie Rattue, Too many tabs <orattue[at]toomanytabs.com>
- * @copyright Copyright (c) 2011, Ollie Rattue
  * @license   http://www.opensource.org/licenses/mit-license.php
- * @link      https://github.com/ollierattue/codeigniter-paypal
  */
 
 // ------------------------------------------------------------------------
